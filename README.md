@@ -30,11 +30,11 @@ SentinelRate operates as a middleware pipeline:
 ```mermaid
 graph LR
     Client -->|Request| Middleware
-    Middleware -->|Extract| Identifier[Resolver (JWT/IP)]
-    Identifier -->|Key| Bucket[Token Bucket State]
-    Bucket -->|Check| Decision{Allows?}
-    Decision --YES--> App[FastAPI Routes]
-    Decision --NO--> 429[HTTP 429 Too Many Requests]
+    Middleware -->|Extract| Identifier["Resolver (JWT/IP)"]
+    Identifier -->|Key| Bucket["Token Bucket State"]
+    Bucket -->|Check| Decision{"Allows?"}
+    Decision --YES--> App["FastAPI Routes"]
+    Decision --NO--> 429["HTTP 429 Too Many Requests"]
 ```
 
 ---
