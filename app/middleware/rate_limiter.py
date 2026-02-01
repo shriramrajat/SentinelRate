@@ -17,26 +17,35 @@ class SentinelMiddleware(BaseHTTPMiddleware):
         )
 
     async def dispatch(self, request: Request, call_next):
-        # 1. Identity: Extract IP (The "Who")
-        # In PROD, you would use X-Forwarded-For headers behind a proxy
         client_ip = request.client.host if request.client else "unknown"
 
-        # 2. Decision: Ask the Engine
-        is_allowed = self.limiter.allow_request(client_ip)
+        # Unpack the tuple
+        is_allowed, remaining, retry_after = self.limiter.allow_request(client_ip)
 
-        # 3. Enforce: Block if false
+        # Common Headers
+        headers = {
+            "X-RateLimit-Limit": str(settings.DEFAULT_LIMIT),
+            "X-RateLimit-Remaining": str(remaining),
+            "X-RateLimit-Reset": str(int(time.time() + retry_after))
+        }
+
         if not is_allowed:
+            # Add Retry-After for blocked requests
+            headers["Retry-After"] = str(int(retry_after) + 1) # +1 sec for safety
+            
             return JSONResponse(
                 status_code=429,
                 content={
                     "error": "Too Many Requests",
-                    "detail": "Rate limit exceeded. Slow down."
-                }
+                    "detail": f"Rate limit exceeded. Try again in {int(retry_after)+1} seconds."
+                },
+                headers=headers 
             )
 
-        # 4. Allow: Forward the request
         response = await call_next(request)
         
-        # Add headers for transparency
-        response.headers["X-RateLimit-Limit"] = str(settings.DEFAULT_LIMIT)
+        # Inject headers into successful response
+        for key, value in headers.items():
+            response.headers[key] = value
+            
         return response
