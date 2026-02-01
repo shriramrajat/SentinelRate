@@ -21,10 +21,10 @@ class TokenBucketLimiter:
     def _get_current_time(self) -> float:
         return time.monotonic()
 
-    def allow_request(self, identifier: str, cost: int = 1) -> bool:
+        # Update the type hint if you wish, or just use the logic
+    def allow_request(self, identifier: str, cost: int = 1):
         now = self._get_current_time()
         
-        # 1. Get or Create Bucket
         if identifier not in self._buckets:
             self._buckets[identifier] = BucketState(
                 tokens=float(self.capacity),
@@ -33,19 +33,19 @@ class TokenBucketLimiter:
         
         bucket = self._buckets[identifier]
 
-        # 2. Refill (The Magic)
-        # Calculate time passed since last check
+        # Refill
         time_passed = now - bucket.last_updated
-        # Calculate new tokens to add
         new_tokens = time_passed * self.refill_rate
-        
-        # Update state
         bucket.tokens = min(self.capacity, bucket.tokens + new_tokens)
         bucket.last_updated = now
 
-        # 3. Consume
+        # Decision & Calculation
         if bucket.tokens >= cost:
             bucket.tokens -= cost
-            return True  # ALLOW
+            # Allowed, Remaining, Retry After (0 because allowed)
+            return (True, int(bucket.tokens), 0.0)
         else:
-            return False # BLOCK
+            # Calculate time needed to get enough tokens
+            tokens_needed = cost - bucket.tokens
+            wait_time = tokens_needed / self.refill_rate
+            return (False, int(bucket.tokens), wait_time)
