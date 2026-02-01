@@ -4,44 +4,30 @@ from starlette.responses import JSONResponse
 from app.config import settings
 from app.limiter.token_bucket import TokenBucketLimiter
 import time
+from app.resolver import IdentifierResolver 
+
 
 class SentinelMiddleware(BaseHTTPMiddleware):
     def __init__(self, app):
         super().__init__(app)
-        # Initialize the Engine
-        # Refill Rate = Limit / Period (e.g., 100 tokens / 60 seconds)
-        refill_rate = settings.DEFAULT_LIMIT / settings.DEFAULT_PERIOD
-        
-        self.limiter = TokenBucketLimiter(
-            capacity=settings.DEFAULT_LIMIT,
-            refill_rate=refill_rate
-        )
-
+        # Initialize Engine (Empty now)
+        self.limiter = TokenBucketLimiter()
     async def dispatch(self, request: Request, call_next):
-        client_ip = request.client.host if request.client else "unknown"
-
-        # Unpack the tuple
-        is_allowed, remaining, retry_after = self.limiter.allow_request(client_ip)
-
-        # Common Headers
-        headers = {
-            "X-RateLimit-Limit": str(settings.DEFAULT_LIMIT),
-            "X-RateLimit-Remaining": str(remaining),
-            "X-RateLimit-Reset": str(int(time.time() + retry_after))
-        }
-
-        if not is_allowed:
-            # Add Retry-After for blocked requests
-            headers["Retry-After"] = str(int(retry_after) + 1) # +1 sec for safety
+        # 1. Resolve Identity
+        identifier, is_auth = IdentifierResolver.resolve_identity(request)
+        # 2. Select Policy
+        if is_auth:
+            limit = settings.USER_LIMIT
+        else:
+            limit = settings.ANON_LIMIT
             
-            return JSONResponse(
-                status_code=429,
-                content={
-                    "error": "Too Many Requests",
-                    "detail": f"Rate limit exceeded. Try again in {int(retry_after)+1} seconds."
-                },
-                headers=headers 
-            )
+        rate = limit / settings.DEFAULT_PERIOD
+        # 3. Decision
+        is_allowed, remaining, retry_after = self.limiter.allow_request(
+            identifier=identifier,
+            capacity=limit,
+            refill_rate=rate
+        )
 
         response = await call_next(request)
         
