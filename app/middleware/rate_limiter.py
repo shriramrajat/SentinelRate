@@ -29,6 +29,26 @@ class SentinelMiddleware(BaseHTTPMiddleware):
             refill_rate=rate
         )
 
+        # Common Headers for decision
+        headers = {
+            "X-RateLimit-Limit": str(limit),
+            "X-RateLimit-Remaining": str(remaining),
+            "X-RateLimit-Reset": str(int(time.time() + retry_after))
+        }
+
+        if not is_allowed:
+            # Add Retry-After for blocked requests
+            headers["Retry-After"] = str(int(retry_after) + 1)
+            
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "error": "Too Many Requests",
+                    "detail": f"Rate limit exceeded. Try again in {int(retry_after)+1} seconds."
+                },
+                headers=headers 
+            )
+
         response = await call_next(request)
         
         # Inject headers into successful response
