@@ -11,7 +11,7 @@ class SentinelMiddleware(BaseHTTPMiddleware):
     def __init__(self, app):
         super().__init__(app)
         # Initialize Engine (Empty now)
-        self.limiter = TokenBucketLimiter()
+        self.limiter = TokenBucketLimiter() 
     async def dispatch(self, request: Request, call_next):
         # 1. Resolve Identity
         identifier, is_auth = IdentifierResolver.resolve_identity(request)

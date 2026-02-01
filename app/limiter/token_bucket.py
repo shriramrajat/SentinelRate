@@ -8,13 +8,11 @@ class BucketState:
     last_updated: float
 
 class TokenBucketLimiter:
-    def __init__(self, capacity: int, refill_rate: float):
+    def __init__(self):
         """
-        capacity: Max tokens the bucket can hold (Burst size).
-        refill_rate: Tokens added per second.
+        Initializes the TokenBucketLimiter with an empty state.
+        Limits are now passed dynamically per request.
         """
-        self.capacity = capacity
-        self.refill_rate = refill_rate
         # The "Database" (In-Memory for now)
         self._buckets: Dict[str, BucketState] = {}
 
