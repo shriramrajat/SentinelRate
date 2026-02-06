@@ -5,7 +5,7 @@ from app.config import settings
 from app.limiter.token_bucket import TokenBucketLimiter
 import time
 from app.resolver import IdentifierResolver 
-
+from app.metrics import MetricsManager
 
 class SentinelMiddleware(BaseHTTPMiddleware):
     def __init__(self, app):
@@ -37,6 +37,9 @@ class SentinelMiddleware(BaseHTTPMiddleware):
         }
 
         if not is_allowed:
+            # 🚨 TRACK BLOCK
+            MetricsManager.track_blocked()
+
             # Add Retry-After for blocked requests
             headers["Retry-After"] = str(int(retry_after) + 1)
             
@@ -48,6 +51,9 @@ class SentinelMiddleware(BaseHTTPMiddleware):
                 },
                 headers=headers 
             )
+
+        # ✅ TRACK ALLOW
+        MetricsManager.track_allowed()
 
         response = await call_next(request)
         

@@ -2,6 +2,7 @@
 from fastapi import FastAPI
 from app.config import settings
 from app.middleware.rate_limiter import SentinelMiddleware
+from app.metrics import MetricsManager
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -10,6 +11,13 @@ app = FastAPI(
 
 # Attach our Custom Middleware
 app.add_middleware(SentinelMiddleware)
+
+@app.get("/metrics")
+async def get_metrics():
+    """
+    Real-time visibility into the Rate Limiter's performance.
+    """
+    return MetricsManager.get_stats()
 
 @app.get("/health")
 async def health_check():
