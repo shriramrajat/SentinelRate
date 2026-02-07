@@ -15,16 +15,36 @@ class TokenBucketLimiter:
         """
         # The "Database" (In-Memory for now)
         self._buckets: Dict[str, BucketState] = {}
+        # Optimization: Clean up stale entries periodically
+        self._ops_count: int = 0
+        self._cleanup_interval: int = 1000  # Check every 1000 requests
 
     def _get_current_time(self) -> float:
         return time.monotonic()
 
-        # Update the type hint if you wish, or just use the logic
-    
+    def _cleanup_stale_buckets(self, current_time: float, ttl: int = 300):
+        """
+        Remove buckets not updated in 'ttl' seconds (default 5 mins).
+        """
+        # Identifying stale keys
+        expired_keys = [
+            k for k, v in self._buckets.items()
+            if (current_time - v.last_updated) > ttl
+        ]
+        # Deleting them
+        for k in expired_keys:
+            del self._buckets[k]
+
     # Pass limits dynamically
     def allow_request(self, identifier: str, capacity: int, refill_rate: float, cost: int = 1):
         now = self._get_current_time()
         
+        # 🧹 LAZY CLEANUP CHECK
+        self._ops_count += 1
+        if self._ops_count >= self._cleanup_interval:
+            self._cleanup_stale_buckets(now)
+            self._ops_count = 0  # Reset counter
+
         if identifier not in self._buckets:
             self._buckets[identifier] = BucketState(
                 tokens=float(capacity), # Start full based on THEIR limit
